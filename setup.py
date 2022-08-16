@@ -23,19 +23,19 @@ setuptools.setup(
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
     entry_points={
-        'console_scripts': [
-            'cnmf = cnmf:main',
+        "console_scripts": [
+            "cnmf = cnmf:main",
         ],
     },
     install_requires=[
-   'scikit-learn>=1.0',
-   'scanpy',
-   'pandas',
-   'numpy',
-   'fastcluster',
-   'matplotlib',
-   'palettable',
-   'scipy',
-   'pyyaml'
-   ]
+        "scikit-learn>=1.0",
+        "scanpy",
+        "pandas",
+        "numpy",
+        "fastcluster",
+        "matplotlib",
+        "palettable",
+        "scipy",
+        "pyyaml",
+    ],
 )
