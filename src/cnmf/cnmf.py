@@ -788,7 +788,7 @@ class cNMF:
 
     def combine_nmf(self, k, data_type="spectra", skip_missing_files=False):
         run_params = load_df_from_npz(self.paths["nmf_replicate_parameters"])
-        print("Combining factorizations for k=%d." % k)
+        print("Combining %s factorizations for k=%d." % (data_type, k))
 
         run_params_subset = run_params[run_params.n_components == k].sort_values("iter")
         combined_data = []
@@ -1129,6 +1129,7 @@ class cNMF:
                 local_density=local_density,
                 density_filter=density_filter,
                 density_threshold=density_threshold,
+                topics_dist=topics_dist,
                 save_dir=self.paths["clustering_plot"] % (k, density_threshold_repl),
                 close_clustergram_fig=close_clustergram_fig,
             )
@@ -1140,6 +1141,7 @@ class cNMF:
         local_density,
         density_filter,
         density_threshold,
+        topics_dist=None,
         save_dir=None,
         close_clustergram_fig=False,
     ):
@@ -1310,19 +1312,20 @@ class cNMF:
         run_params = load_df_from_npz(self.paths["nmf_replicate_parameters"])
         stats = []
         for k in sorted(set(run_params.n_components)):
-            stats.append(self.k_stability_stats(k=k))
+            stats_df = self.k_stability_stats(k=k)
+            stats.append(stats_df['stats'])
 
         stats = pd.DataFrame(stats)
         stats.reset_index(drop=True, inplace=True)
 
         save_df_to_npz(stats, self.paths["k_selection_stats"])
-        cNMF.stability_plot(
+        cNMF.plot_stability(
             stats=stats,
             stability_type="program",
             save_dir=self.paths["k_selection_plot_program"],
             close_fig=close_fig,
         )
-        cNMF.stability_plot(
+        cNMF.plot_stability(
             stats=stats,
             stability_type="usages",
             save_dir=self.paths["k_selection_plot_usages"],
