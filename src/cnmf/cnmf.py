@@ -887,18 +887,24 @@ class cNMF:
         return self.refit_usage(X.T, usage.T).T
 
     @staticmethod
-    def usages_stability(merged_usages, k):
+    def usages_stability(merged_usages, k, subsample_size=50_000):
         ntrials = int(merged_usages.shape[1] / k)
+
+        # subsample cells bc it takes forever to run otherwise
+        idxs = np.random.choice(np.arange(merged_usages.shape[0]), size= subsample_size)
+        merged_usages_sub = merged_usages.iloc[idxs, :]
         for trial in range(ntrials):
-            program_scores = merged_usages.loc[
-                :, merged_usages.columns.str.contains("iter%d" % trial)
-            ].values
-            assignment = program_scores.argmax(axis=1)
-            usages = np.zeros_like(program_scores)
+            usage_shape = (merged_usages_sub.shape[0], merged_usages_sub.columns.str.contains("iter%d" % trial).sum())
+            assignment = np.argmax(merged_usages_sub.loc[
+                :, merged_usages_sub.columns.str.contains("iter%d" % trial)
+            ].values, axis=1)
+            usages = np.zeros(usage_shape)
             usages[np.arange(usages.shape[0]), assignment] = 1
             if trial == 0:
-                d = np.zeros(int(comb(program_scores.shape[0], 2)))
-            d += pdist(usages, metric="braycurtis")
+                d = np.zeros(int(comb(usage_shape[0], 2)))
+            bc_dist = pdist(usages, metric="braycurtis")
+            d = d + bc_dist
+            del bc_dist
 
         d /= ntrials
         hc = linkage(d, method="average")
@@ -982,8 +988,7 @@ class cNMF:
         merged_spectra = load_df_from_npz(self.paths["merged_spectra"] % k)
         norm_counts = sc.read(self.paths["normalized_counts"])
 
-        density_threshold_str = str(density_threshold)
-        density_threshold_repl = density_threshold_str.replace(".", "_")
+        density_threshold_repl = str(density_threshold).replace(".", "_")
         n_neighbors = int(local_neighborhood_size * merged_spectra.shape[0] / k)
 
         # Rescale topics such to length of 1.
@@ -1304,15 +1309,22 @@ class cNMF:
         if close_clustergram_fig:
             plt.close(fig)
 
-    def k_selection_plot(self, close_fig=False):
+    def k_selection_plot(self, density_threshold=0.5, close_fig=False):
         """
         Borrowed from Alexandrov Et Al. 2013 Deciphering Mutational Signatures
         publication in Cell Reports
         """
         run_params = load_df_from_npz(self.paths["nmf_replicate_parameters"])
+        density_threshold_repl = str(density_threshold).replace(".", "_")
+
         stats = []
         for k in sorted(set(run_params.n_components)):
-            stats_df = self.k_stability_stats(k=k)
+            if os.path.isfile(self.paths["consensus_stats"] % (k, density_threshold_repl)):
+                print("Loading stats for component %d" % k)
+                stats_df = load_df_from_npz(self.paths["consensus_stats"] % (k, density_threshold_repl))
+            else:
+                print("Calculating stats for component %d" % k)
+                stats_df = self.k_stability_stats(k=k, density_threshold=density_threshold)
             stats.append(stats_df['stats'])
 
         stats = pd.DataFrame(stats)
@@ -1596,16 +1608,20 @@ def main():
             ks = args.components
 
         for k in ks:
+            print("Running for component %d" % k)
             cnmf_obj.consensus(
-                k,
-                args.local_density_threshold,
-                args.local_neighborhood_size,
-                args.show_clustering,
+                k=k,
+                density_threshold=args.local_density_threshold,
+                local_neighborhood_size=args.local_neighborhood_size,
+                show_clustering=args.show_clustering,
                 close_clustergram_fig=True,
             )
 
     elif args.command == "k_selection_plot":
-        cnmf_obj.k_selection_plot(close_fig=True)
+        cnmf_obj.k_selection_plot(
+            density_threshold=args.local_density_threshold,
+            close_fig=True
+        )
 
 
 if __name__ == "__main__":
