@@ -1570,6 +1570,12 @@ def main():
         help="[consensus] Produce a clustergram figure summarizing the spectra clustering",
         action="store_true",
     )
+    parser.add_argument(
+        "--skip-missing-files",
+        dest="skip_missing_files",
+        help="[combine] Whether to skip missing files",
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
@@ -1595,7 +1601,7 @@ def main():
         cnmf_obj.factorize(worker_i=args.worker_index, total_workers=args.total_workers)
 
     elif args.command == "combine":
-        cnmf_obj.combine(components=args.components)
+        cnmf_obj.combine(components=args.components, skip_missing_files=args.skip_missing_files)
 
     elif args.command == "consensus":
         run_params = load_df_from_npz(cnmf_obj.paths["nmf_replicate_parameters"])
